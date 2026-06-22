@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import { getModel } from "@/lib/llm";
 import { getActivePromptContent } from "@/lib/prompts/repo";
-import { getActiveKbContent } from "@/lib/kb/repo";
+import { getActiveKbContent, retrieveChunks } from "@/lib/kb/repo";
 
 export type Lang = "pt" | "en";
 export type Route = "fit" | "tech" | "factual" | "contact";
@@ -11,6 +11,7 @@ export type Trace = {
   route: Route;
   clarify: string | null;
   verified: boolean;
+  retrievedChunks: number;
 };
 
 const ROUTES: Route[] = ["fit", "tech", "factual", "contact"];
@@ -57,7 +58,14 @@ export async function runPipeline({
         lang === "en"
           ? "I can only answer questions about Thiago's professional profile, grounded in real facts. Could you rephrase?"
           : "Só consigo responder sobre o perfil profissional do Thiago, com base em fatos reais. Pode reformular?",
-      trace: { safe: false, reason: triage.reason ?? "bloqueado", route: "tech", clarify: null, verified: false },
+      trace: {
+        safe: false,
+        reason: triage.reason ?? "bloqueado",
+        route: "tech",
+        clarify: null,
+        verified: false,
+        retrievedChunks: 0,
+      },
     };
   }
 
@@ -69,16 +77,26 @@ export async function runPipeline({
         lang === "en"
           ? "Great — I'll let Thiago know you'd like to talk. Leave your name, company and best contact, and he'll reach out directly."
           : "Ótimo — vou avisar o Thiago que você quer conversar. Deixe seu nome, empresa e o melhor contato que ele te procura direto.",
-      trace: { safe: true, reason: triage.reason ?? "", route, clarify: null, verified: false },
+      trace: {
+        safe: true,
+        reason: triage.reason ?? "",
+        route,
+        clarify: null,
+        verified: false,
+        retrievedChunks: 0,
+      },
     };
   }
 
-  // 2) Resposta do sub-agente roteado, com grounding na KB ativa.
+  // 2) Resposta do sub-agente roteado. RAG: recupera os chunks mais relevantes da
+  // KB ativa; sem provider de embeddings, cai no grounding com a KB completa.
   const subPrompt = await getActivePromptContent(`subagent.${route}`);
   const langRule = lang === "en" ? "Answer in English." : "Responda em português (pt-BR).";
+  const retrieved = await retrieveChunks(question, 5);
+  const grounding = retrieved ? retrieved.join("\n\n---\n\n") : kb;
   const draft = await generateText({
     model: getModel("smart"),
-    system: `${subPrompt}\n\n=== BASE DE FATOS (única fonte permitida) ===\n${kb}\n=== FIM DA BASE ===\n${langRule}`,
+    system: `${subPrompt}\n\n=== BASE DE FATOS (única fonte permitida) ===\n${grounding}\n=== FIM DA BASE ===\n${langRule}`,
     prompt: question,
   });
 
@@ -98,6 +116,7 @@ export async function runPipeline({
       route,
       clarify: triage.clarify ?? null,
       verified: true,
+      retrievedChunks: retrieved?.length ?? 0,
     },
   };
 }

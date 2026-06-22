@@ -10,7 +10,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx db/seed.ts",
-    "db:up": "docker compose up -d db"
+    "db:backfill": "tsx scripts/kb-backfill.ts",
+    "db:up": "docker compose up -d db",
+    "embed:smoke": "tsx scripts/embed-smoke.ts"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.39",

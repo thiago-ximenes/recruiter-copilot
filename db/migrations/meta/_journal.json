@@ -15,6 +15,13 @@
       "when": 1782141572027,
       "tag": "0001_worried_ricochet",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782145967220,
+      "tag": "0002_thick_wrecking_crew",
+      "breakpoints": true
     }
   ]
 }

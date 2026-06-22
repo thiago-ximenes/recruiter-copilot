@@ -141,7 +141,9 @@ export function ChatRoom({
                     <span className="rounded-full bg-black/5 px-1.5 py-0.5">
                       🧭 {ROUTE_LABEL[m.trace.route] ?? m.trace.route}
                     </span>
-                    <span className="rounded-full bg-black/5 px-1.5 py-0.5">📚 grounded</span>
+                    <span className="rounded-full bg-black/5 px-1.5 py-0.5">
+                      {m.trace.retrievedChunks > 0 ? `📚 RAG (${m.trace.retrievedChunks})` : "📚 grounded"}
+                    </span>
                     {m.trace.verified && (
                       <span className="rounded-full bg-[#008069]/10 px-1.5 py-0.5 text-[#008069]">
                         ✓ verificado
