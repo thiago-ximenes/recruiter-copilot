@@ -3,7 +3,7 @@
 
 export const EMBEDDING_DIMENSIONS = 768;
 
-const GEMINI_MODEL = "models/text-embedding-004";
+const GEMINI_MODEL = "models/gemini-embedding-001";
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 export function embeddingsEnabled(): boolean {
@@ -12,26 +12,35 @@ export function embeddingsEnabled(): boolean {
   return false;
 }
 
-async function embedGemini(texts: string[]): Promise<number[][]> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY ausente");
+// MRL truncado (<3072) não vem unit-norm; normaliza pra cosseno ficar correto.
+function normalize(v: number[]): number[] {
+  const norm = Math.sqrt(v.reduce((acc, x) => acc + x * x, 0));
+  return norm === 0 ? v : v.map((x) => x / norm);
+}
 
-  const res = await fetch(`${GEMINI_URL}/${GEMINI_MODEL}:batchEmbedContents?key=${key}`, {
+async function embedGeminiOne(text: string, key: string): Promise<number[]> {
+  const res = await fetch(`${GEMINI_URL}/${GEMINI_MODEL}:embedContent?key=${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      requests: texts.map((text) => ({
-        model: GEMINI_MODEL,
-        content: { parts: [{ text }] },
-      })),
+      model: GEMINI_MODEL,
+      content: { parts: [{ text }] },
+      outputDimensionality: EMBEDDING_DIMENSIONS,
     }),
   });
-
   if (!res.ok) {
     throw new Error(`Gemini embeddings ${res.status}: ${await res.text()}`);
   }
-  const data = (await res.json()) as { embeddings: { values: number[] }[] };
-  return data.embeddings.map((e) => e.values);
+  const data = (await res.json()) as { embedding: { values: number[] } };
+  return normalize(data.embedding.values);
+}
+
+async function embedGemini(texts: string[]): Promise<number[][]> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY ausente");
+  const out: number[][] = [];
+  for (const text of texts) out.push(await embedGeminiOne(text, key));
+  return out;
 }
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
