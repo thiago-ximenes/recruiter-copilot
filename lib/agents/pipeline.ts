@@ -1,7 +1,10 @@
 import { generateText } from "ai";
 import { getModel } from "@/lib/llm";
+import { parseJson } from "@/lib/agents/json";
 import { getActivePromptContent } from "@/lib/prompts/repo";
 import { getActiveKbContent, retrieveChunks } from "@/lib/kb/repo";
+import { captureLead } from "@/lib/tools/capture-lead";
+import { captureGap } from "@/lib/tools/capture-gap";
 
 export type Lang = "pt" | "en";
 export type Route = "fit" | "tech" | "factual" | "contact";
@@ -12,16 +15,11 @@ export type Trace = {
   clarify: string | null;
   verified: boolean;
   retrievedChunks: number;
+  leadCaptured: boolean;
+  gapCaptured: boolean;
 };
 
 const ROUTES: Route[] = ["fit", "tech", "factual", "contact"];
-
-function parseJson<T>(s: string): T {
-  const cleaned = s.replace(/```json/gi, "").replace(/```/g, "").trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  return JSON.parse(cleaned.slice(start, end + 1)) as T;
-}
 
 // Pipeline: Guard+Router (triagem) -> Sub-agente com RAG -> Verificador.
 export async function runPipeline({
@@ -65,6 +63,8 @@ export async function runPipeline({
         clarify: null,
         verified: false,
         retrievedChunks: 0,
+        leadCaptured: false,
+        gapCaptured: false,
       },
     };
   }
@@ -72,11 +72,16 @@ export async function runPipeline({
   const route: Route = ROUTES.includes(triage.route as Route) ? (triage.route as Route) : "tech";
 
   if (route === "contact") {
+    const lead = await captureLead(question, lang);
+    const answer = lead
+      ? lang === "en"
+        ? "Got it — I've passed your details to Thiago and he'll reach out directly. Thanks!"
+        : "Anotado — já repassei seus dados pro Thiago e ele te procura direto. Valeu!"
+      : lang === "en"
+        ? "Great — I'll let Thiago know you'd like to talk. Leave your name, company and best contact, and he'll reach out directly."
+        : "Ótimo — vou avisar o Thiago que você quer conversar. Deixe seu nome, empresa e o melhor contato que ele te procura direto.";
     return {
-      answer:
-        lang === "en"
-          ? "Great — I'll let Thiago know you'd like to talk. Leave your name, company and best contact, and he'll reach out directly."
-          : "Ótimo — vou avisar o Thiago que você quer conversar. Deixe seu nome, empresa e o melhor contato que ele te procura direto.",
+      answer,
       trace: {
         safe: true,
         reason: triage.reason ?? "",
@@ -84,6 +89,8 @@ export async function runPipeline({
         clarify: null,
         verified: false,
         retrievedChunks: 0,
+        leadCaptured: Boolean(lead),
+        gapCaptured: false,
       },
     };
   }
@@ -108,8 +115,16 @@ export async function runPipeline({
     prompt: `RASCUNHO A VERIFICAR:\n${draft.text}`,
   });
 
+  const answer = verified.text.trim();
+
+  // 4) Pós-resposta: registra gap se o agente não soube; captura lead oportunista.
+  const [gap, lead] = await Promise.all([
+    captureGap(question, answer, route, lang),
+    captureLead(question, lang, route === "fit" ? question : null),
+  ]);
+
   return {
-    answer: verified.text.trim(),
+    answer,
     trace: {
       safe: true,
       reason: triage.reason ?? "",
@@ -117,6 +132,8 @@ export async function runPipeline({
       clarify: triage.clarify ?? null,
       verified: true,
       retrievedChunks: retrieved?.length ?? 0,
+      leadCaptured: Boolean(lead),
+      gapCaptured: Boolean(gap),
     },
   };
 }

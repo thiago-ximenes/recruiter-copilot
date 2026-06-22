@@ -49,6 +49,7 @@ export const leads = pgTable("leads", {
   jdText: text("jd_text"),
   lang: text("lang"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 // ===== KB (funil de ingestão) =====
@@ -124,4 +125,5 @@ export const gaps = pgTable("gaps", {
   lang: text("lang"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });

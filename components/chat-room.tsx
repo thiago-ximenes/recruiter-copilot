@@ -149,6 +149,16 @@ export function ChatRoom({
                         ✓ verificado
                       </span>
                     )}
+                    {m.trace.leadCaptured && (
+                      <span className="rounded-full bg-[#008069]/10 px-1.5 py-0.5 text-[#008069]">
+                        🤝 lead
+                      </span>
+                    )}
+                    {m.trace.gapCaptured && (
+                      <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-700">
+                        📝 gap
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
