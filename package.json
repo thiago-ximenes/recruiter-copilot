@@ -11,6 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx db/seed.ts",
     "db:backfill": "tsx scripts/kb-backfill.ts",
+    "db:setup": "drizzle-kit migrate && tsx db/seed.ts && tsx scripts/kb-backfill.ts",
     "db:up": "docker compose up -d db",
     "embed:smoke": "tsx scripts/embed-smoke.ts",
     "test": "vitest run",
