@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: recruiter-copilot-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: recruiter
+      POSTGRES_PASSWORD: recruiter
+      POSTGRES_DB: recruiter_copilot
+    ports:
+      - "5433:5432"
+    volumes:
+      - rc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recruiter -d recruiter_copilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  rc_pgdata:

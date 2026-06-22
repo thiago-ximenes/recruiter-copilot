@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Recruiter Copilot
 
-## Getting Started
+An AI agent that recruiters can talk to in order to evaluate a candidate — **grounded only in
+verified facts**, with the candidate's real engineering differentiators on display *while you use it*:
+agent routing, anti‑hallucination, prompt‑injection defense, and an eval‑driven workflow.
 
-First, run the development server:
+> Built as a portfolio piece by [Thiago Ximenes](https://www.linkedin.com/in/thiago-ximenes).
+> The app *is* the interview: a recruiter pastes a job description or asks questions, and sees the
+> AI engineering working in real time.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## What it does
+
+- **Fit analysis** — paste a job description, get a grounded score with evidence and honest, role‑relevant gaps.
+- **Technical Q&A** — assertive answers about the candidate's experience, grounded in real facts.
+- **Honest by design** — it never makes things up. If something isn't in the profile, it says so.
+- **Bilingual** — answers in the recruiter's language (EN / pt‑BR).
+
+## Architecture
+
+```
+recruiter → [Guard] → [Router] → sub‑agent → [RAG grounding] → [Verifier] → answer
+              │                                                      │
+        injection?                                          unsupported claim?
+         blocked                                              corrected / refused
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Guard** — treats the recruiter's message as untrusted data; blocks prompt‑injection and
+  system‑prompt exfiltration.
+- **Router** — classifies intent into a fixed allowlist (fit / technical / factual / contact).
+- **Sub‑agents + RAG** — answer grounded on a curated, versioned knowledge base.
+- **Verifier** — checks every claim against the KB before it reaches the recruiter.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Knowledge‑base ingestion funnel
+Upload a résumé (PDF) or paste text → the text is extracted → an LLM **refines** it into a clean,
+canonical fact base (with an honest‑gaps section) → you review/edit → it's saved as a new **versioned**
+active KB. Raw in, polished grounding out.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Eval harness
+A test set (factual / fit / sales / grounding / injection) runs the full pipeline and scores each
+case (deterministic for injection, LLM‑judge for the rest), so prompts can be iterated until the
+flow is right. Current pass rate: **100%**.
 
-## Learn More
+### Admin (everything is data, versioned)
+All prompts and the KB live in Postgres, **versioned with full history and rollback**, editable from
+the admin UI — no redeploys to tune behaviour.
 
-To learn more about Next.js, take a look at the following resources:
+## Tech stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Next.js 16** (App Router, RSC, Server Actions), **React 19**, **TypeScript**, **Tailwind CSS**
+- **Postgres** + **Drizzle ORM** (Docker Compose for local dev)
+- **Vercel AI SDK** with a provider‑agnostic LLM layer (currently **DeepSeek**)
+- **unpdf** for résumé parsing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Running locally
 
-## Deploy on Vercel
+```bash
+cp .env.example .env        # set DATABASE_URL, LLM_PROVIDER, DEEPSEEK_API_KEY
+docker compose up -d db     # Postgres
+npm install
+npm run db:migrate          # schema
+npm run db:seed             # prompts + KB
+npm run dev                 # http://localhost:3000  (admin at /admin)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Helper scripts: `npm run db:seed`, `tsx scripts/llm-smoke.ts` (LLM healthcheck),
+`tsx scripts/eval-run.ts` (eval harness).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Status
+
+Working end‑to‑end: landing, live agent pipeline, KB funnel, versioned prompt admin, eval harness.
+Roadmap: lead capture + notifications, OpenTelemetry observability, tests, auth, deploy.
+
+See [`SPEC.md`](./SPEC.md) for the full design.
