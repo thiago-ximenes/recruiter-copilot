@@ -12,7 +12,10 @@
     "db:seed": "tsx db/seed.ts",
     "db:backfill": "tsx scripts/kb-backfill.ts",
     "db:up": "docker compose up -d db",
-    "embed:smoke": "tsx scripts/embed-smoke.ts"
+    "embed:smoke": "tsx scripts/embed-smoke.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.39",
@@ -28,6 +31,7 @@
     "unpdf": "^1.6.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
@@ -39,6 +43,7 @@
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }

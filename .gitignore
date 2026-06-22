@@ -42,3 +42,9 @@ next-env.d.ts
 
 # permitir o template (sem segredos)
 !.env.example
+
+# tests
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/
