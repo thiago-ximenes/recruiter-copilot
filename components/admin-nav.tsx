@@ -1,11 +1,15 @@
 import Link from "next/link";
 
-const TABS = [
+export type AdminTab = "prompts" | "kb" | "leads" | "gaps";
+
+const TABS: { href: string; label: string; key: AdminTab }[] = [
   { href: "/admin", label: "Prompts", key: "prompts" },
   { href: "/admin/kb", label: "Base de Conhecimento", key: "kb" },
+  { href: "/admin/leads", label: "Leads", key: "leads" },
+  { href: "/admin/gaps", label: "Gaps", key: "gaps" },
 ];
 
-export function AdminNav({ active }: { active: "prompts" | "kb" }) {
+export function AdminNav({ active }: { active: AdminTab }) {
   return (
     <header className="flex items-center justify-between border-b border-black/5 bg-white px-5 py-3">
       <div className="flex items-center gap-1">
@@ -23,13 +27,15 @@ export function AdminNav({ active }: { active: "prompts" | "kb" }) {
             {t.label}
           </Link>
         ))}
-        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-          sem auth (TODO)
-        </span>
       </div>
-      <Link href="/" className="text-xs text-[#54656f] hover:text-[#008069]">
-        ‹ Voltar à conversa
-      </Link>
+      <div className="flex items-center gap-3">
+        <Link href="/admin/logout" prefetch={false} className="text-xs text-[#54656f] hover:text-[#008069]">
+          Sair
+        </Link>
+        <Link href="/" className="text-xs text-[#54656f] hover:text-[#008069]">
+          ‹ Voltar à conversa
+        </Link>
+      </div>
     </header>
   );
 }
