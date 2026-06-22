@@ -10,10 +10,18 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx db/seed.ts",
-    "db:up": "docker compose up -d db"
+    "db:backfill": "tsx scripts/kb-backfill.ts",
+    "db:setup": "drizzle-kit migrate && tsx db/seed.ts && tsx scripts/kb-backfill.ts",
+    "db:up": "docker compose up -d db",
+    "embed:smoke": "tsx scripts/embed-smoke.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.39",
+    "@opentelemetry/api": "^1.9.1",
+    "@vercel/otel": "^2.1.3",
     "ai": "^6.0.208",
     "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.40.0",
@@ -24,6 +32,7 @@
     "unpdf": "^1.6.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
@@ -35,6 +44,7 @@
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }

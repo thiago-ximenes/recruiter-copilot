@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { INTRO, type Lang } from "@/lib/intro-script";
+import { DICT, type Lang } from "@/lib/i18n";
 
 function renderBold(text: string) {
   // splits on *bold* segments (trusted, own content)
@@ -26,7 +26,7 @@ export function IntroChat() {
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const script = INTRO[lang];
+  const script = DICT[lang].intro;
   const total = script.messages.length;
   const done = shown >= total;
 
@@ -118,7 +118,7 @@ export function IntroChat() {
                 <div className="wa-bubble-in max-w-[85%] px-3 py-2 text-[14.5px] leading-snug text-[#111b21]">
                   {renderBold(msg)}
                   <span className="ml-2 inline-block translate-y-0.5 text-[10px] text-[#667781]">
-                    {lang === "pt" ? "agora" : "now"}
+                    {script.now}
                   </span>
                 </div>
               </motion.div>
@@ -166,9 +166,7 @@ export function IntroChat() {
           </AnimatePresence>
 
           {!done && (
-            <p className="px-1 text-center text-[11px] text-[#667781]">
-              {lang === "pt" ? "toque para pular ›" : "tap to skip ›"}
-            </p>
+            <p className="px-1 text-center text-[11px] text-[#667781]">{script.skipHint}</p>
           )}
         </div>
       </div>

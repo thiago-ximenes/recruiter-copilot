@@ -3,44 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Lang, Trace } from "@/lib/agents/pipeline";
+import { DICT } from "@/lib/i18n";
 
 type Msg = { role: "user" | "assistant"; text: string; trace?: Trace };
-
-const T = {
-  pt: {
-    header: "Assistente do Thiago",
-    status: "online · IA",
-    placeholder: "Escreva sua pergunta…",
-    greeting:
-      "Oi! 👋 Pergunte o que quiser sobre o Thiago, ou cole a sua vaga que eu meço o fit. Respondo só com base nos fatos reais dele.",
-    stages: ["🛡️ verificando entrada", "🧭 roteando", "📚 consultando a base", "✓ verificando"],
-    back: "‹ Voltar",
-    fitPrefill: "Minha vaga: ",
-  },
-  en: {
-    header: "Thiago's Assistant",
-    status: "online · AI",
-    placeholder: "Type your question…",
-    greeting:
-      "Hi! 👋 Ask anything about Thiago, or paste your role and I'll measure the fit. I only answer grounded in his real facts.",
-    stages: ["🛡️ checking input", "🧭 routing", "📚 consulting the KB", "✓ verifying"],
-    back: "‹ Back",
-    fitPrefill: "My role: ",
-  },
-} as const;
-
-const STARTERS: Record<string, { pt: string; en: string }> = {
-  skills: { pt: "Quais tecnologias o Thiago domina?", en: "What technologies does Thiago know?" },
-  why: { pt: "Por que contratar o Thiago?", en: "Why should we hire Thiago?" },
-  contact: { pt: "Quero falar com o Thiago.", en: "I'd like to talk to Thiago." },
-};
-
-const ROUTE_LABEL: Record<string, string> = {
-  fit: "fit",
-  tech: "técnico",
-  factual: "factual",
-  contact: "contato",
-};
 
 export function ChatRoom({
   initialIntent,
@@ -50,7 +15,7 @@ export function ChatRoom({
   initialLang: Lang;
 }) {
   const [lang] = useState<Lang>(initialLang);
-  const t = T[lang];
+  const t = DICT[lang].chat;
   const [messages, setMessages] = useState<Msg[]>([{ role: "assistant", text: t.greeting }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -62,8 +27,8 @@ export function ChatRoom({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    if (initialIntent && STARTERS[initialIntent]) {
-      send(STARTERS[initialIntent][lang]);
+    if (initialIntent && t.starters[initialIntent]) {
+      send(t.starters[initialIntent]);
     } else if (initialIntent === "fit") {
       setInput(t.fitPrefill);
     }
@@ -136,15 +101,27 @@ export function ChatRoom({
                 {m.trace && (
                   <div className="mt-2 flex flex-wrap gap-1 border-t border-black/5 pt-1.5 text-[10px] text-[#54656f]">
                     <span className="rounded-full bg-black/5 px-1.5 py-0.5">
-                      {m.trace.safe ? "🛡️ seguro" : "🛡️ bloqueado"}
+                      {m.trace.safe ? t.trace.safe : t.trace.blocked}
                     </span>
                     <span className="rounded-full bg-black/5 px-1.5 py-0.5">
-                      🧭 {ROUTE_LABEL[m.trace.route] ?? m.trace.route}
+                      🧭 {t.trace.routes[m.trace.route] ?? m.trace.route}
                     </span>
-                    <span className="rounded-full bg-black/5 px-1.5 py-0.5">📚 grounded</span>
+                    <span className="rounded-full bg-black/5 px-1.5 py-0.5">
+                      {m.trace.retrievedChunks > 0 ? `📚 RAG (${m.trace.retrievedChunks})` : t.trace.grounded}
+                    </span>
                     {m.trace.verified && (
                       <span className="rounded-full bg-[#008069]/10 px-1.5 py-0.5 text-[#008069]">
-                        ✓ verificado
+                        {t.trace.verified}
+                      </span>
+                    )}
+                    {m.trace.leadCaptured && (
+                      <span className="rounded-full bg-[#008069]/10 px-1.5 py-0.5 text-[#008069]">
+                        {t.trace.lead}
+                      </span>
+                    )}
+                    {m.trace.gapCaptured && (
+                      <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-700">
+                        {t.trace.gap}
                       </span>
                     )}
                   </div>
@@ -187,7 +164,7 @@ export function ChatRoom({
             type="submit"
             disabled={busy || !input.trim()}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#008069] text-white transition disabled:opacity-40"
-            aria-label="enviar"
+            aria-label={t.send}
           >
             ➤
           </button>

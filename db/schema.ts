@@ -6,6 +6,7 @@ import {
   text,
   timestamp,
   unique,
+  vector,
 } from "drizzle-orm/pg-core";
 
 // Um prompt nomeado (guard, router, subagent.fit, ...). A versão ativa aponta
@@ -48,6 +49,7 @@ export const leads = pgTable("leads", {
   jdText: text("jd_text"),
   lang: text("lang"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 // ===== KB (funil de ingestão) =====
@@ -101,6 +103,19 @@ export const kbDocumentVersions = pgTable(
   (t) => [unique("kb_document_version_unique").on(t.documentId, t.version)],
 );
 
+// Chunks vetorizados da versão ativa da KB — RAG real (pgvector).
+// Recriados a cada versão ativada; recuperação por similaridade de cosseno.
+export const kbChunks = pgTable("kb_chunks", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  documentVersionId: bigint("document_version_id", { mode: "number" })
+    .notNull()
+    .references(() => kbDocumentVersions.id),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  embedding: vector("embedding", { dimensions: 768 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Perguntas que o agente não soube / respondeu fraco -> o Thiago se prepara.
 export const gaps = pgTable("gaps", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -110,4 +125,5 @@ export const gaps = pgTable("gaps", {
   lang: text("lang"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });

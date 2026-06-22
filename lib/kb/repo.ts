@@ -1,11 +1,14 @@
-import { desc, eq, max } from "drizzle-orm";
+import { desc, eq, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  kbChunks,
   kbDocuments,
   kbDocumentVersions,
   kbSources,
   kbSourceTypes,
 } from "@/db/schema";
+import { chunkMarkdown } from "@/lib/kb/chunk";
+import { embedText, embedTexts, embeddingsEnabled } from "@/lib/llm/embeddings";
 
 const DEFAULT_KEY = "profile-facts";
 
@@ -25,6 +28,52 @@ export type KbDoc = {
   activeVersionId: number | null;
   versions: KbVersion[];
 };
+
+// Vetoriza uma versão da KB (RAG): chunk -> embed -> grava. Idempotente por versão.
+// Sem provider de embeddings configurado, é no-op (pipeline cai no fallback de KB full).
+export async function reindexKbVersion(documentVersionId: number, content: string): Promise<number> {
+  if (!embeddingsEnabled()) return 0;
+  const chunks = chunkMarkdown(content);
+  if (chunks.length === 0) return 0;
+  const vectors = await embedTexts(chunks);
+  await db.delete(kbChunks).where(eq(kbChunks.documentVersionId, documentVersionId));
+  await db.insert(kbChunks).values(
+    chunks.map((c, i) => ({
+      documentVersionId,
+      chunkIndex: i,
+      content: c,
+      embedding: vectors[i],
+    })),
+  );
+  return chunks.length;
+}
+
+// Recupera os top-K chunks mais próximos da pergunta na versão ativa da KB.
+// Retorna null quando RAG não está disponível -> caller usa a KB completa.
+export async function retrieveChunks(
+  query: string,
+  k = 5,
+  key = DEFAULT_KEY,
+): Promise<string[] | null> {
+  if (!embeddingsEnabled()) return null;
+  const [d] = await db.select().from(kbDocuments).where(eq(kbDocuments.key, key));
+  if (!d?.activeVersionId) return null;
+  try {
+    const vec = await embedText(query);
+    const literal = `[${vec.join(",")}]`;
+    const res = await db.execute(sql`
+      SELECT content FROM kb_chunks
+      WHERE document_version_id = ${d.activeVersionId}
+      ORDER BY embedding <=> ${literal}::vector
+      LIMIT ${k}
+    `);
+    const rows = res.rows as { content: string }[];
+    return rows.length > 0 ? rows.map((r) => r.content) : null;
+  } catch (e) {
+    console.warn(`[rag] retrieval indisponível, usando KB completa: ${(e as Error).message}`);
+    return null;
+  }
+}
 
 // Conteúdo da KB ativa (grounding do agente).
 export async function getActiveKbContent(key = DEFAULT_KEY): Promise<string> {
@@ -101,6 +150,11 @@ export async function saveKbVersion(
     .update(kbDocuments)
     .set({ activeVersionId: v.id, updatedAt: new Date() })
     .where(eq(kbDocuments.id, d.id));
+  try {
+    await reindexKbVersion(v.id, content);
+  } catch (e) {
+    console.warn(`[rag] indexação falhou (rode o backfill depois): ${(e as Error).message}`);
+  }
   return v;
 }
 
@@ -116,6 +170,11 @@ export async function rollbackKb(key: string, versionId: number) {
     .update(kbDocuments)
     .set({ activeVersionId: v.id, updatedAt: new Date() })
     .where(eq(kbDocuments.id, d.id));
+  const [existing] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(kbChunks)
+    .where(eq(kbChunks.documentVersionId, v.id));
+  if (!existing || existing.count === 0) await reindexKbVersion(v.id, v.content);
 }
 
 export { DEFAULT_KEY };
