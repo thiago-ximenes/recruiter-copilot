@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { KbDoc } from "@/lib/kb/repo";
+import type { KbDoc, SourceSummary } from "@/lib/kb/repo";
 import {
+  deleteSourceAction,
   extractPdfAction,
+  reRefineAction,
   refineAction,
   refineBatchAction,
   rollbackKbAction,
@@ -12,7 +14,7 @@ import {
 
 type StagedPdf = { filename: string; text: string };
 
-export function KbFunnel({ doc }: { doc: KbDoc }) {
+export function KbFunnel({ doc, sources }: { doc: KbDoc; sources: SourceSummary[] }) {
   const active = doc.versions.find((v) => v.id === doc.activeVersionId);
 
   const [tab, setTab] = useState<"upload" | "paste">("upload");
@@ -83,6 +85,34 @@ export function KbFunnel({ doc }: { doc: KbDoc }) {
         setMsg("✓ nova versão da KB salva e ativada");
       } catch (err) {
         setMsg(`erro ao salvar: ${(err as Error).message}`);
+      }
+    });
+  }
+
+  function deleteSource(id: number) {
+    setMsg(null);
+    start(async () => {
+      try {
+        await deleteSourceAction(id);
+        setMsg("✓ fonte removida — re-refine pra rebuildar a KB sem ela");
+      } catch (err) {
+        setMsg(`erro ao remover fonte: ${(err as Error).message}`);
+      }
+    });
+  }
+
+  function reRefine() {
+    setMsg(null);
+    start(async () => {
+      try {
+        const res = await reRefineAction();
+        setDraft(res.draft);
+        setSourceId(undefined);
+        setNote("re-refino a partir das fontes ativas");
+        setMsg("✓ re-refinado a partir das fontes — revise e salve");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } catch (err) {
+        setMsg(`erro no re-refino: ${(err as Error).message}`);
       }
     });
   }
@@ -234,6 +264,50 @@ export function KbFunnel({ doc }: { doc: KbDoc }) {
           </div>
         </section>
       )}
+
+      {/* FONTES INGERIDAS */}
+      <section className="rounded-xl border border-black/5 bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold">Fontes ingeridas ({sources.length})</h2>
+          <button
+            onClick={reRefine}
+            disabled={busy || sources.length === 0}
+            className="shrink-0 rounded-lg bg-[#008069] px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40"
+          >
+            Re-refinar a partir das fontes →
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-[#54656f]">
+          Delete uma fonte e re-refine pra rebuildar a KB sem o conteúdo dela. Gera um rascunho
+          pra revisar antes de salvar (edições manuais da versão atual não são preservadas).
+        </p>
+        {sources.length === 0 ? (
+          <p className="mt-3 text-xs text-[#9aa6ad]">Nenhuma fonte registrada.</p>
+        ) : (
+          <ul className="mt-3 space-y-1.5">
+            {sources.map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-black/5 bg-[#f8f9fa] px-3 py-2 text-xs"
+              >
+                <span className="min-w-0 truncate">
+                  📄 {s.filename ?? "fonte"}{" "}
+                  <span className="text-[#9aa6ad]">
+                    · {s.chars} caracteres · {new Date(s.createdAt).toLocaleDateString("pt-BR")}
+                  </span>
+                </span>
+                <button
+                  onClick={() => deleteSource(s.id)}
+                  disabled={busy}
+                  className="shrink-0 rounded-md px-2 py-1 font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-40"
+                >
+                  deletar
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* KB ATIVA + HISTÓRICO */}
       <section className="rounded-xl border border-black/5 bg-white p-4">

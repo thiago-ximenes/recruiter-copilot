@@ -1,11 +1,11 @@
-import { getKbDoc } from "@/lib/kb/repo";
+import { getKbDoc, listSources } from "@/lib/kb/repo";
 import { KbFunnel } from "@/components/kb-funnel";
 import { AdminNav } from "@/components/admin-nav";
 
 export const dynamic = "force-dynamic";
 
 export default async function KbAdminPage() {
-  const doc = await getKbDoc();
+  const [doc, sources] = await Promise.all([getKbDoc(), listSources()]);
 
   return (
     <div className="min-h-[100dvh] bg-[#f0f2f5] text-[#111b21]">
@@ -17,7 +17,7 @@ export default async function KbAdminPage() {
           grounding do agente. Histórico e rollback preservados.
         </p>
         {doc ? (
-          <KbFunnel doc={doc} />
+          <KbFunnel doc={doc} sources={sources} />
         ) : (
           <p className="text-sm text-red-600">
             KB não encontrada — rode <code>npm run db:seed</code>.

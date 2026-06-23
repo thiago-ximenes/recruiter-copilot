@@ -11,6 +11,7 @@ import {
   promptVersions,
 } from "./schema";
 import { PROMPT_SEEDS } from "../lib/prompts/defaults";
+import { addSource, countActiveSources, getActiveKbContent } from "../lib/kb/repo";
 
 async function seedKb() {
   // tipos de fonte (lookup)
@@ -21,29 +22,39 @@ async function seedKb() {
 
   // documento canônico profile-facts (v1 = facts.md atual)
   const existing = await db.select().from(kbDocuments).where(eq(kbDocuments.key, "profile-facts"));
-  if (existing.length > 0) {
+  if (existing.length === 0) {
+    const factsPath = path.join(process.cwd(), "data/profile/facts.md");
+    const content = fs.readFileSync(factsPath, "utf8");
+    const [doc] = await db
+      .insert(kbDocuments)
+      .values({ key: "profile-facts", title: "Perfil — fatos verificados" })
+      .returning();
+    const [v1] = await db
+      .insert(kbDocumentVersions)
+      .values({
+        documentId: doc.id,
+        version: 1,
+        content,
+        changeNote: "seed inicial (facts.md)",
+        author: "seed",
+      })
+      .returning();
+    await db.update(kbDocuments).set({ activeVersionId: v1.id }).where(eq(kbDocuments.id, doc.id));
+    console.log("✓ seed: kb profile-facts (v1)");
+  } else {
     console.log("• skip (já existe): kb profile-facts");
-    return;
   }
-  const factsPath = path.join(process.cwd(), "data/profile/facts.md");
-  const content = fs.readFileSync(factsPath, "utf8");
 
-  const [doc] = await db
-    .insert(kbDocuments)
-    .values({ key: "profile-facts", title: "Perfil — fatos verificados" })
-    .returning();
-  const [v1] = await db
-    .insert(kbDocumentVersions)
-    .values({
-      documentId: doc.id,
-      version: 1,
-      content,
-      changeNote: "seed inicial (facts.md)",
-      author: "seed",
-    })
-    .returning();
-  await db.update(kbDocuments).set({ activeVersionId: v1.id }).where(eq(kbDocuments.id, doc.id));
-  console.log("✓ seed: kb profile-facts (v1)");
+  // Garante uma fonte-base (provenance) pra permitir re-refino a partir das fontes.
+  if ((await countActiveSources()) === 0) {
+    try {
+      const base = await getActiveKbContent();
+      await addSource("text", base, "base inicial");
+      console.log("✓ seed: fonte-base registrada (base inicial)");
+    } catch {
+      // sem KB ativa ainda — nada a registrar
+    }
+  }
 }
 
 // Semeia os prompts (idempotente): cria o prompt + versão 1 + marca como ativa.

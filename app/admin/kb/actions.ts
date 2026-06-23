@@ -6,8 +6,10 @@ import {
   DEFAULT_KEY,
   addSource,
   getActiveKbContent,
+  getSourcesCombined,
   rollbackKb,
   saveKbVersion,
+  softDeleteSource,
 } from "@/lib/kb/repo";
 import { refineKb } from "@/lib/llm/refine";
 
@@ -79,4 +81,18 @@ export async function saveKbAction(content: string, changeNote: string, sourceId
 export async function rollbackKbAction(versionId: number) {
   await rollbackKb(DEFAULT_KEY, versionId);
   revalidatePath("/admin/kb");
+}
+
+// Deleta (soft) uma fonte ingerida. Atualiza a lista; o re-refino é um passo separado.
+export async function deleteSourceAction(id: number) {
+  await softDeleteSource(id);
+  revalidatePath("/admin/kb");
+}
+
+// Re-refina a KB a partir das fontes ATIVAS (sem as deletadas). Gera rascunho pra revisar.
+export async function reRefineAction(): Promise<{ draft: string }> {
+  const combined = await getSourcesCombined();
+  if (!combined.trim()) throw new Error("nenhuma fonte ativa para re-refinar");
+  const draft = await refineKb(combined);
+  return { draft };
 }

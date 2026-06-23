@@ -1,4 +1,4 @@
-import { desc, eq, max, sql } from "drizzle-orm";
+import { desc, eq, isNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   kbChunks,
@@ -175,6 +175,49 @@ export async function rollbackKb(key: string, versionId: number) {
     .from(kbChunks)
     .where(eq(kbChunks.documentVersionId, v.id));
   if (!existing || existing.count === 0) await reindexKbVersion(v.id, v.content);
+}
+
+export type SourceSummary = {
+  id: number;
+  filename: string | null;
+  chars: number;
+  createdAt: Date;
+};
+
+// Fontes ativas (não deletadas) — provenance pro re-refino.
+export async function listSources(): Promise<SourceSummary[]> {
+  return db
+    .select({
+      id: kbSources.id,
+      filename: kbSources.filename,
+      chars: sql<number>`char_length(${kbSources.rawText})`,
+      createdAt: kbSources.createdAt,
+    })
+    .from(kbSources)
+    .where(isNull(kbSources.deletedAt))
+    .orderBy(desc(kbSources.createdAt));
+}
+
+export async function countActiveSources(): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(kbSources)
+    .where(isNull(kbSources.deletedAt));
+  return row?.count ?? 0;
+}
+
+export async function softDeleteSource(id: number): Promise<void> {
+  await db.update(kbSources).set({ deletedAt: new Date() }).where(eq(kbSources.id, id));
+}
+
+// Texto combinado de todas as fontes ativas — entrada do re-refino da KB.
+export async function getSourcesCombined(): Promise<string> {
+  const rows = await db
+    .select({ filename: kbSources.filename, rawText: kbSources.rawText })
+    .from(kbSources)
+    .where(isNull(kbSources.deletedAt))
+    .orderBy(kbSources.createdAt);
+  return rows.map((r) => `### ${r.filename ?? "fonte"}\n${r.rawText}`).join("\n\n---\n\n");
 }
 
 export { DEFAULT_KEY };
