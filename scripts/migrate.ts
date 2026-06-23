@@ -2,7 +2,7 @@ import "dotenv/config";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { sslFor } from "../db/ssl";
+import { normalizePgUrl } from "../db/ssl";
 
 // Auto-migration de deploy. Tenta conexão direta (melhor pra DDL) e cai pro
 // pooler se a direta não for alcançável (ex.: IPv6 no build da Vercel).
@@ -16,10 +16,9 @@ async function main() {
   if (candidates.length === 0) throw new Error("nenhuma connection string disponível");
 
   let lastErr: unknown;
-  for (const connectionString of candidates) {
+  for (const raw of candidates) {
     const pool = new Pool({
-      connectionString,
-      ssl: sslFor(connectionString),
+      connectionString: normalizePgUrl(raw),
       connectionTimeoutMillis: 15_000,
     });
     try {
