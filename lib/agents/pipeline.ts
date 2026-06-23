@@ -22,6 +22,11 @@ export type Trace = {
 
 const ROUTES: Route[] = ["fit", "tech", "factual", "contact"];
 
+// Estilo de saída: o recrutador quer respostas curtas e diretas.
+const STYLE_RULE = `Estilo OBRIGATÓRIO: responda curto, direto e objetivo. No máximo ~4 frases OU
+poucos bullets enxutos. Vá ao ponto, sem repetir, sem preâmbulo, sem encher linguiça. Negrito só no
+essencial. Em análise de fit: score + 2-3 evidências + (se houver) 1-2 gaps — tudo em bullets curtos.`;
+
 // Pipeline: Guard+Router (triagem) -> Sub-agente com RAG -> Verificador.
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
@@ -134,7 +139,7 @@ async function runPipelineInner(
   const draft = await span("pipeline.subagent", () =>
     generateText({
       model: getModel("smart"),
-      system: `${subPrompt}\n\n=== BASE DE FATOS (única fonte permitida) ===\n${grounding}\n=== FIM DA BASE ===\n${langRule}\nMantenha coerência com o histórico da conversa.`,
+      system: `${subPrompt}\n\n=== BASE DE FATOS (única fonte permitida) ===\n${grounding}\n=== FIM DA BASE ===\n${langRule}\nMantenha coerência com o histórico da conversa.\n${STYLE_RULE}`,
       messages: [...history, { role: "user", content: question }],
     }),
   );
@@ -144,7 +149,7 @@ async function runPipelineInner(
   const verified = await span("pipeline.verify", () =>
     generateText({
       model: getModel("smart"),
-      system: `${verifierPrompt}\n\n=== BASE DE FATOS ===\n${kb}\n=== FIM DA BASE ===\n${langRule}`,
+      system: `${verifierPrompt}\n\n=== BASE DE FATOS ===\n${kb}\n=== FIM DA BASE ===\n${langRule}\n${STYLE_RULE}`,
       prompt: `RASCUNHO A VERIFICAR:\n${draft.text}`,
     }),
   );

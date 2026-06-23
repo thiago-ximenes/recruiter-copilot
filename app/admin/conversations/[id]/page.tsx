@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminNav } from "@/components/admin-nav";
+import { ChatMarkdown } from "@/components/chat-markdown";
 import { getConversation } from "@/lib/conversations/repo";
 import { formatBRT } from "@/lib/format";
 
@@ -63,7 +64,11 @@ export default async function ConversationDetailPage({
                           : "bg-[#f0f2f5] text-[#111b21]"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{m.content}</p>
+                      {m.role === "assistant" ? (
+                        <ChatMarkdown>{m.content}</ChatMarkdown>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{m.content}</p>
+                      )}
                       {trace && (
                         <div className="mt-1.5 flex flex-wrap gap-1 border-t border-black/5 pt-1 text-[10px] text-[#54656f]">
                           {trace.safe === false && (
