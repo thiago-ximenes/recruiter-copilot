@@ -77,17 +77,16 @@ Helper scripts: `npm run db:backfill` (vectorize the active KB), `npm run embed:
 
 ## Deploy (Vercel + Neon)
 
-1. **Database** — in the Vercel project → **Storage** → **Create Database** → **Neon** (free).
-   It injects `DATABASE_URL` into the project. Neon ships `pgvector`.
+1. **Database** — connect a Postgres store in the Vercel project → **Storage** (Neon or Supabase,
+   both ship `pgvector`). The integration injects the connection vars (`DATABASE_URL` or
+   `POSTGRES_URL`/`POSTGRES_URL_NON_POOLING`) — the app reads whichever is present.
 2. **Env vars** (Project → Settings → Environment Variables):
    `LLM_PROVIDER`, `DEEPSEEK_API_KEY`, `EMBEDDING_PROVIDER`, `GEMINI_API_KEY`,
    `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and optionally `TELEGRAM_BOT_TOKEN` /
    `TELEGRAM_CHAT_ID` and `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_HEADERS`.
-3. **Bootstrap the DB** once against Neon (migrations don't run on Vercel builds) — point the env
-   at the Neon connection string and run the setup (migrate + seed + vectorize KB):
-   ```bash
-   DATABASE_URL="<neon-url>" GEMINI_API_KEY="<key>" npm run db:setup
-   ```
+3. **Auto‑migration on deploy** — the build command (`npm run vercel-build`, set in `vercel.json`)
+   runs migrations + seed + KB vectorization before `next build`, using the build‑time DB env.
+   All three steps are idempotent, so every deploy is safe.
 4. Pushes to `main` auto‑deploy (the repo is connected to the Vercel project).
 
 ## Status

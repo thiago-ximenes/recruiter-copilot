@@ -1,9 +1,11 @@
 import "dotenv/config";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../db";
-import { kbDocuments, kbDocumentVersions } from "../db/schema";
+import { kbChunks, kbDocuments, kbDocumentVersions } from "../db/schema";
 import { reindexKbVersion } from "../lib/kb/repo";
 import { embeddingsEnabled } from "../lib/llm/embeddings";
+
+const force = process.argv.includes("--force");
 
 // Vetoriza a versão ATIVA de cada documento da KB (RAG). Roda após habilitar
 // o provider de embeddings ou após um deploy novo.
@@ -23,6 +25,14 @@ async function main() {
       .select()
       .from(kbDocumentVersions)
       .where(eq(kbDocumentVersions.id, d.activeVersionId));
+    const [existing] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(kbChunks)
+      .where(eq(kbChunks.documentVersionId, v.id));
+    if (!force && existing?.count > 0) {
+      console.log(`• skip (já vetorizado): ${d.key} v${v.version} (${existing.count} chunks)`);
+      continue;
+    }
     const n = await reindexKbVersion(v.id, v.content);
     console.log(`✓ ${d.key} v${v.version}: ${n} chunks`);
   }
