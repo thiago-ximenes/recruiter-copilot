@@ -29,6 +29,23 @@ export async function appendMessage(
   });
 }
 
+// Histórico recente (cronológico) pra dar memória ao agente na mesma conversa.
+export async function getRecentMessages(
+  conversationId: number,
+  limit = 10,
+): Promise<{ role: "user" | "assistant"; content: string }[]> {
+  const rows = await db
+    .select({ role: messageRoles.code, content: conversationMessages.content })
+    .from(conversationMessages)
+    .innerJoin(messageRoles, eq(conversationMessages.roleId, messageRoles.id))
+    .where(eq(conversationMessages.conversationId, conversationId))
+    .orderBy(desc(conversationMessages.createdAt))
+    .limit(limit);
+  return rows
+    .reverse()
+    .map((r) => ({ role: r.role === "assistant" ? "assistant" : "user", content: r.content }));
+}
+
 export type ConversationSummary = {
   id: number;
   createdAt: Date;

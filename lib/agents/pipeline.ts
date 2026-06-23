@@ -23,10 +23,13 @@ export type Trace = {
 const ROUTES: Route[] = ["fit", "tech", "factual", "contact"];
 
 // Pipeline: Guard+Router (triagem) -> Sub-agente com RAG -> Verificador.
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+
 export async function runPipeline(input: {
   question: string;
   lang: Lang;
   conversationId?: number | null;
+  history?: ChatTurn[];
 }): Promise<{ answer: string; trace: Trace }> {
   return span("pipeline.run", (root) => runPipelineInner(input, root), {
     "rc.lang": input.lang,
@@ -38,7 +41,8 @@ async function runPipelineInner(
     question,
     lang,
     conversationId,
-  }: { question: string; lang: Lang; conversationId?: number | null },
+    history = [],
+  }: { question: string; lang: Lang; conversationId?: number | null; history?: ChatTurn[] },
   root: import("@opentelemetry/api").Span,
 ): Promise<{ answer: string; trace: Trace }> {
   const [guard, router, kb] = await Promise.all([
@@ -130,8 +134,8 @@ async function runPipelineInner(
   const draft = await span("pipeline.subagent", () =>
     generateText({
       model: getModel("smart"),
-      system: `${subPrompt}\n\n=== BASE DE FATOS (única fonte permitida) ===\n${grounding}\n=== FIM DA BASE ===\n${langRule}`,
-      prompt: question,
+      system: `${subPrompt}\n\n=== BASE DE FATOS (única fonte permitida) ===\n${grounding}\n=== FIM DA BASE ===\n${langRule}\nMantenha coerência com o histórico da conversa.`,
+      messages: [...history, { role: "user", content: question }],
     }),
   );
 

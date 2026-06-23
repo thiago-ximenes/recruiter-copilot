@@ -1,6 +1,10 @@
 import type { NextRequest } from "next/server";
 import { runPipeline } from "@/lib/agents/pipeline";
-import { appendMessage, createConversation } from "@/lib/conversations/repo";
+import {
+  appendMessage,
+  createConversation,
+  getRecentMessages,
+} from "@/lib/conversations/repo";
 
 export const runtime = "nodejs"; // pg precisa de Node runtime
 export const maxDuration = 60;
@@ -19,8 +23,9 @@ export async function POST(req: NextRequest) {
         ? body.conversationId
         : await createConversation(lang);
 
+    const history = await getRecentMessages(conversationId, 10);
     await appendMessage(conversationId, "user", question);
-    const result = await runPipeline({ question, lang, conversationId });
+    const result = await runPipeline({ question, lang, conversationId, history });
     await appendMessage(conversationId, "assistant", result.answer, result.trace);
 
     return Response.json({ ...result, conversationId });
