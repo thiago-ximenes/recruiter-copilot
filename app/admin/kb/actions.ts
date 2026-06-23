@@ -42,6 +42,33 @@ export async function refineAction(
   return { draft, sourceId };
 }
 
+// Processamento em lote: N PDFs viram fontes + texto combinado refinado de uma vez.
+export async function refineBatchAction(
+  items: { filename: string; text: string }[],
+  merge: boolean,
+): Promise<{ draft: string; sourceId?: number }> {
+  const valid = items.filter((i) => i.text.trim());
+  if (valid.length === 0) throw new Error("nenhum PDF com texto");
+
+  let firstSourceId: number | undefined;
+  for (const item of valid) {
+    const id = await addSource("pdf", item.text, item.filename);
+    firstSourceId ??= id;
+  }
+
+  const combined = valid.map((i) => `### ${i.filename}\n${i.text}`).join("\n\n---\n\n");
+  let currentKb: string | undefined;
+  if (merge) {
+    try {
+      currentKb = await getActiveKbContent();
+    } catch {
+      currentKb = undefined;
+    }
+  }
+  const draft = await refineKb(combined, currentKb);
+  return { draft, sourceId: firstSourceId };
+}
+
 // Saída do funil: salva o refinado revisado como nova versão ativa.
 export async function saveKbAction(content: string, changeNote: string, sourceId?: number) {
   if (!content.trim()) throw new Error("conteúdo vazio");

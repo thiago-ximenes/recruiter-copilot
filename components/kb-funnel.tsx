@@ -5,16 +5,19 @@ import type { KbDoc } from "@/lib/kb/repo";
 import {
   extractPdfAction,
   refineAction,
+  refineBatchAction,
   rollbackKbAction,
   saveKbAction,
 } from "@/app/admin/kb/actions";
+
+type StagedPdf = { filename: string; text: string };
 
 export function KbFunnel({ doc }: { doc: KbDoc }) {
   const active = doc.versions.find((v) => v.id === doc.activeVersionId);
 
   const [tab, setTab] = useState<"upload" | "paste">("upload");
   const [rawText, setRawText] = useState("");
-  const [filename, setFilename] = useState<string>();
+  const [staged, setStaged] = useState<StagedPdf[]>([]);
   const [merge, setMerge] = useState(true);
 
   const [draft, setDraft] = useState<string | null>(null);
@@ -27,29 +30,36 @@ export function KbFunnel({ doc }: { doc: KbDoc }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFilename(f.name);
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     setMsg(null);
-    const fd = new FormData();
-    fd.append("file", f);
     start(async () => {
-      try {
-        const text = await extractPdfAction(fd);
-        setRawText(text);
-        setMsg(`✓ PDF extraído (${text.length} caracteres)`);
-      } catch (err) {
-        setMsg(`erro ao ler PDF: ${(err as Error).message}`);
+      for (const f of files) {
+        try {
+          const fd = new FormData();
+          fd.append("file", f);
+          const text = await extractPdfAction(fd);
+          setStaged((prev) => [...prev, { filename: f.name, text }]);
+        } catch (err) {
+          setMsg(`erro ao ler ${f.name}: ${(err as Error).message}`);
+        }
       }
+      if (fileRef.current) fileRef.current.value = "";
     });
+  }
+
+  function removeStaged(index: number) {
+    setStaged((prev) => prev.filter((_, i) => i !== index));
   }
 
   function refine() {
     setMsg(null);
     start(async () => {
       try {
-        const type = tab === "upload" ? "pdf" : "text";
-        const res = await refineAction(rawText, type, merge, filename);
+        const res =
+          tab === "upload"
+            ? await refineBatchAction(staged, merge)
+            : await refineAction(rawText, "text", merge);
         setDraft(res.draft);
         setSourceId(res.sourceId);
         setMsg("✓ refinado — revise antes de salvar");
@@ -67,7 +77,7 @@ export function KbFunnel({ doc }: { doc: KbDoc }) {
         await saveKbAction(draft, note, sourceId);
         setDraft(null);
         setRawText("");
-        setFilename(undefined);
+        setStaged([]);
         setNote("");
         if (fileRef.current) fileRef.current.value = "";
         setMsg("✓ nova versão da KB salva e ativada");
@@ -75,6 +85,15 @@ export function KbFunnel({ doc }: { doc: KbDoc }) {
         setMsg(`erro ao salvar: ${(err as Error).message}`);
       }
     });
+  }
+
+  function editActive() {
+    if (!active) return;
+    setDraft(active.content);
+    setSourceId(undefined);
+    setNote("");
+    setMsg("editando a base ativa — remova o que quiser e salve como nova versão");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function rollback(versionId: number) {
@@ -116,16 +135,34 @@ export function KbFunnel({ doc }: { doc: KbDoc }) {
               ref={fileRef}
               type="file"
               accept="application/pdf"
+              multiple
               onChange={onFile}
               className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#008069] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#00674f]"
             />
-            {filename && (
-              <p className="mt-2 text-xs text-[#54656f]">arquivo: {filename}</p>
-            )}
-            {rawText && (
-              <p className="mt-1 text-xs text-[#54656f]">
-                texto extraído: {rawText.length} caracteres
-              </p>
+            <p className="mt-2 text-xs text-[#54656f]">
+              Adicione um ou vários PDFs. Eles são extraídos e refinados juntos numa só versão.
+            </p>
+            {staged.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {staged.map((s, i) => (
+                  <li
+                    key={`${s.filename}-${i}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-black/5 bg-[#f8f9fa] px-3 py-2 text-xs"
+                  >
+                    <span className="min-w-0 truncate">
+                      📄 {s.filename}{" "}
+                      <span className="text-[#9aa6ad]">· {s.text.length} caracteres</span>
+                    </span>
+                    <button
+                      onClick={() => removeStaged(i)}
+                      disabled={busy}
+                      className="shrink-0 rounded-md px-2 py-1 font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-40"
+                    >
+                      remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         ) : (
@@ -149,10 +186,14 @@ export function KbFunnel({ doc }: { doc: KbDoc }) {
           </label>
           <button
             onClick={refine}
-            disabled={!rawText.trim() || busy}
+            disabled={busy || (tab === "upload" ? staged.length === 0 : !rawText.trim())}
             className="ml-auto rounded-lg bg-[#008069] px-4 py-2 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "processando…" : "2. Refinar com IA →"}
+            {busy
+              ? "processando…"
+              : tab === "upload" && staged.length > 0
+                ? `2. Refinar ${staged.length} PDF(s) com IA →`
+                : "2. Refinar com IA →"}
           </button>
         </div>
         {msg && <p className="mt-2 text-xs text-[#54656f]">{msg}</p>}
@@ -200,12 +241,21 @@ export function KbFunnel({ doc }: { doc: KbDoc }) {
           <h2 className="text-sm font-semibold">
             {doc.title} — ativa: v{active?.version ?? "?"}
           </h2>
-          <button
-            onClick={() => setShowActive((s) => !s)}
-            className="text-xs text-[#008069] hover:underline"
-          >
-            {showActive ? "ocultar conteúdo" : "ver conteúdo ativo"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={editActive}
+              disabled={!active || busy}
+              className="text-xs font-medium text-[#008069] hover:underline disabled:opacity-40"
+            >
+              editar base ativa
+            </button>
+            <button
+              onClick={() => setShowActive((s) => !s)}
+              className="text-xs text-[#008069] hover:underline"
+            >
+              {showActive ? "ocultar conteúdo" : "ver conteúdo ativo"}
+            </button>
+          </div>
         </div>
         {showActive && active && (
           <pre className="mt-3 max-h-80 overflow-auto rounded-lg bg-[#f8f9fa] p-3 text-[12px] leading-relaxed whitespace-pre-wrap">
