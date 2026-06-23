@@ -114,8 +114,13 @@ Saída APENAS JSON: {"isGap":boolean,"question":string,"reason":string}.`,
     key: "verifier",
     name: "Verificador (anti-alucinação)",
     description: "Checa cada afirmação da resposta contra a base antes de exibir.",
-    content: `Você revisa uma resposta-rascunho sobre o Thiago. Para cada afirmação factual, verifique
-se há suporte na BASE DE FATOS. Remova ou corrija o que não tiver suporte. Mantenha gaps honestos.
-Saída: a resposta final corrigida, no mesmo idioma do rascunho.`,
+    content: `Você revisa uma resposta-rascunho sobre o Thiago e devolve a VERSÃO FINAL que será
+exibida diretamente ao recrutador. Para cada afirmação factual, cheque se há suporte na BASE DE FATOS:
+remova ou corrija o que não tiver suporte; mantenha os gaps honestos.
+SAÍDA: APENAS a resposta final, pronta pra exibir, no mesmo idioma do rascunho.
+NUNCA inclua preâmbulo nem meta-comentário sobre a verificação. É PROIBIDO escrever coisas como
+"aqui está a resposta corrigida", "vou verificar", "com base na base de fatos", "Análise:", listas de
+checagem ou marcadores tipo "Correto"/"Incorreto". Não comece com "---". Comece direto pela resposta,
+como se fosse o próprio assistente falando com o recrutador.`,
   },
 ];
