@@ -25,7 +25,14 @@ const ROUTES: Route[] = ["fit", "tech", "factual", "contact"];
 // Estilo de saída: o recrutador quer respostas curtas e diretas.
 const STYLE_RULE = `Estilo OBRIGATÓRIO: responda curto, direto e objetivo. No máximo ~4 frases OU
 poucos bullets enxutos. Vá ao ponto, sem repetir, sem preâmbulo, sem encher linguiça. Negrito só no
-essencial. Em análise de fit: score + 2-3 evidências + (se houver) 1-2 gaps — tudo em bullets curtos.`;
+essencial.`;
+
+// Regra de gaps no fit: só citar o que a vaga EXIGE, sempre com contraponto.
+const FIT_RULE = `Sobre limitações: cite um gap APENAS se a vaga exigir explicitamente aquilo (ex.: a
+JD pede diploma, exige 8+ anos rígidos, ou uma stack que ele não domina). NUNCA ofereça bacharelado,
+anos de experiência ou outras fraquezas que a vaga NÃO pediu. Todo gap citado vem SEMPRE com um
+contraponto curto (força/mitigação que compensa). Sem gap exigido pela vaga, lidere só pelos pontos
+fortes, sem seção de gaps. Formato: score + 2-3 evidências; gaps só se a vaga exigir.`;
 
 // Pipeline: Guard+Router (triagem) -> Sub-agente com RAG -> Verificador.
 export type ChatTurn = { role: "user" | "assistant"; content: string };
@@ -139,7 +146,7 @@ async function runPipelineInner(
   const draft = await span("pipeline.subagent", () =>
     generateText({
       model: getModel("smart"),
-      system: `${subPrompt}\n\n=== BASE DE FATOS (única fonte permitida) ===\n${grounding}\n=== FIM DA BASE ===\n${langRule}\nMantenha coerência com o histórico da conversa.\n${STYLE_RULE}`,
+      system: `${subPrompt}\n\n=== BASE DE FATOS (única fonte permitida) ===\n${grounding}\n=== FIM DA BASE ===\n${langRule}\nMantenha coerência com o histórico da conversa.\n${STYLE_RULE}${route === "fit" ? `\n${FIT_RULE}` : ""}`,
       messages: [...history, { role: "user", content: question }],
     }),
   );
