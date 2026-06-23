@@ -11,6 +11,7 @@ export type NewLead = {
   contact?: string | null;
   jdText?: string | null;
   lang?: string | null;
+  conversationId?: number | null;
 };
 
 export async function createLead(data: NewLead): Promise<Lead> {

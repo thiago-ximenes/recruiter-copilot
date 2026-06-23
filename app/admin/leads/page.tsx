@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminNav } from "@/components/admin-nav";
 import { listLeads } from "@/lib/leads/repo";
 import { formatBRT } from "@/lib/format";
@@ -42,16 +43,26 @@ export default async function LeadsAdminPage() {
                     <td className="px-4 py-3">{l.company ?? "—"}</td>
                     <td className="px-4 py-3">{l.role ?? "—"}</td>
                     <td className="px-4 py-3 font-medium text-[#008069]">{l.contact ?? "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      <form action={deleteLeadAction}>
-                        <input type="hidden" name="id" value={l.id} />
-                        <button
-                          type="submit"
-                          className="rounded-md px-2 py-1 text-xs text-red-600 transition hover:bg-red-50"
-                        >
-                          Remover
-                        </button>
-                      </form>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-3">
+                        {l.conversationId && (
+                          <Link
+                            href={`/admin/conversations/${l.conversationId}`}
+                            className="text-xs text-[#008069] hover:underline"
+                          >
+                            ver conversa
+                          </Link>
+                        )}
+                        <form action={deleteLeadAction}>
+                          <input type="hidden" name="id" value={l.id} />
+                          <button
+                            type="submit"
+                            className="rounded-md px-2 py-1 text-xs text-red-600 transition hover:bg-red-50"
+                          >
+                            Remover
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))}

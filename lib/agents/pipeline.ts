@@ -26,6 +26,7 @@ const ROUTES: Route[] = ["fit", "tech", "factual", "contact"];
 export async function runPipeline(input: {
   question: string;
   lang: Lang;
+  conversationId?: number | null;
 }): Promise<{ answer: string; trace: Trace }> {
   return span("pipeline.run", (root) => runPipelineInner(input, root), {
     "rc.lang": input.lang,
@@ -33,7 +34,11 @@ export async function runPipeline(input: {
 }
 
 async function runPipelineInner(
-  { question, lang }: { question: string; lang: Lang },
+  {
+    question,
+    lang,
+    conversationId,
+  }: { question: string; lang: Lang; conversationId?: number | null },
   root: import("@opentelemetry/api").Span,
 ): Promise<{ answer: string; trace: Trace }> {
   const [guard, router, kb] = await Promise.all([
@@ -82,7 +87,9 @@ async function runPipelineInner(
   const route: Route = ROUTES.includes(triage.route as Route) ? (triage.route as Route) : "tech";
 
   if (route === "contact") {
-    const lead = await span("pipeline.capture_lead", () => captureLead(question, lang));
+    const lead = await span("pipeline.capture_lead", () =>
+      captureLead(question, lang, null, conversationId),
+    );
     root.setAttributes({ "rc.safe": true, "rc.route": route, "rc.lead": Boolean(lead) });
     const answer = lead
       ? lang === "en"
@@ -144,7 +151,7 @@ async function runPipelineInner(
   const [gap, lead] = await span("pipeline.postprocess", () =>
     Promise.all([
       captureGap(question, answer, route, lang),
-      captureLead(question, lang, route === "fit" ? question : null),
+      captureLead(question, lang, route === "fit" ? question : null, conversationId),
     ]),
   );
 

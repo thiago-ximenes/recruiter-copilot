@@ -13,6 +13,7 @@ export async function captureLead(
   message: string,
   lang: string,
   jdText?: string | null,
+  conversationId?: number | null,
 ): Promise<Lead | null> {
   if (!CONTACT_HINT.test(message)) return null;
 
@@ -38,6 +39,7 @@ export async function captureLead(
     contact: fields.contact ?? null,
     jdText: jdText ?? null,
     lang,
+    conversationId: conversationId ?? null,
   });
 
   await notifyThiago(

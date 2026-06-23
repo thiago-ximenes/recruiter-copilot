@@ -29,6 +29,13 @@
       "when": 1782158548958,
       "tag": "0003_nostalgic_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782226490237,
+      "tag": "0004_black_killmonger",
+      "breakpoints": true
     }
   ]
 }

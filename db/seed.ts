@@ -7,6 +7,7 @@ import {
   kbDocuments,
   kbDocumentVersions,
   kbSourceTypes,
+  messageRoles,
   prompts,
   promptVersions,
 } from "./schema";
@@ -91,6 +92,16 @@ async function main() {
     console.log(`✓ seed: ${seed.key} (v1)`);
   }
   await seedKb();
+
+  // papéis de mensagem (lookup)
+  for (const code of ["user", "assistant"]) {
+    const existing = await db.select().from(messageRoles).where(eq(messageRoles.code, code));
+    if (existing.length === 0) {
+      await db.insert(messageRoles).values({ code });
+      console.log(`✓ seed: message_role ${code}`);
+    }
+  }
+
   console.log("\nDone.");
   process.exit(0);
 }

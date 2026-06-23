@@ -2,6 +2,7 @@ import {
   bigserial,
   bigint,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -39,6 +40,34 @@ export const promptVersions = pgTable(
   (t) => [unique("prompt_version_unique").on(t.promptId, t.version)],
 );
 
+// Conversa do recrutador (transcript persistido). Stateless no agente, mas logado.
+export const conversations = pgTable("conversations", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  lang: text("lang"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+// Lookup de papel da mensagem (user | assistant) — FK int, padrão do projeto.
+export const messageRoles = pgTable("message_roles", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  code: text("code").notNull().unique(),
+});
+
+// Mensagens da conversa (transcript). trace = JSON do raciocínio do agente.
+export const conversationMessages = pgTable("conversation_messages", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  conversationId: bigint("conversation_id", { mode: "number" })
+    .notNull()
+    .references(() => conversations.id),
+  roleId: bigint("role_id", { mode: "number" })
+    .notNull()
+    .references(() => messageRoles.id),
+  content: text("content").notNull(),
+  trace: jsonb("trace"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Captura oportunista de quem engajou (lead gen p/ o Thiago buscar de volta).
 export const leads = pgTable("leads", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -48,6 +77,10 @@ export const leads = pgTable("leads", {
   contact: text("contact"),
   jdText: text("jd_text"),
   lang: text("lang"),
+  conversationId: bigint("conversation_id", { mode: "number" }).references(
+    () => conversations.id,
+    { onDelete: "set null" },
+  ),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });

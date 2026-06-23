@@ -23,6 +23,7 @@ export function ChatRoom({
   const [stage, setStage] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
+  const conversationId = useRef<number | null>(null);
 
   // intro: auto-send ou prefill conforme a intenção vinda da landing
   useEffect(() => {
@@ -58,10 +59,11 @@ export function ChatRoom({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, lang }),
+        body: JSON.stringify({ question: q, lang, conversationId: conversationId.current }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      if (typeof data.conversationId === "number") conversationId.current = data.conversationId;
       setMessages((m) => [...m, { role: "assistant", text: data.answer, trace: data.trace }]);
     } catch (e) {
       setMessages((m) => [
