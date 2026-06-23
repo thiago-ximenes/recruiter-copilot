@@ -40,6 +40,13 @@ export const promptVersions = pgTable(
   (t) => [unique("prompt_version_unique").on(t.promptId, t.version)],
 );
 
+// Estado/config genérico chave-valor (ex.: throttle de alertas operacionais).
+export const appState = pgTable("app_state", {
+  key: text("key").primaryKey(),
+  value: text("value"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Conversa do recrutador (transcript persistido). Stateless no agente, mas logado.
 export const conversations = pgTable("conversations", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

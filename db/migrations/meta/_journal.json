@@ -36,6 +36,13 @@
       "when": 1782226490237,
       "tag": "0004_black_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782228263942,
+      "tag": "0005_nifty_silver_fox",
+      "breakpoints": true
     }
   ]
 }
