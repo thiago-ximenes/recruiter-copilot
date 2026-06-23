@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Lang, Trace } from "@/lib/agents/pipeline";
 import { DICT } from "@/lib/i18n";
+import { ChatMarkdown } from "@/components/chat-markdown";
 
 type Msg = { role: "user" | "assistant"; text: string; trace?: Trace };
 
@@ -97,7 +98,11 @@ export function ChatRoom({
                     : "wa-bubble-in text-[#111b21]"
                 }`}
               >
-                <p className="whitespace-pre-wrap">{m.text}</p>
+                {m.role === "assistant" ? (
+                  <ChatMarkdown>{m.text}</ChatMarkdown>
+                ) : (
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                )}
                 {m.trace && (
                   <div className="mt-2 flex flex-wrap gap-1 border-t border-black/5 pt-1.5 text-[10px] text-[#54656f]">
                     <span className="rounded-full bg-black/5 px-1.5 py-0.5">
