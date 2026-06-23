@@ -48,3 +48,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# pdf gerado do facts (artefato local pra upload)
+facts-thiago-ximenes.pdf
